@@ -1,0 +1,160 @@
+% Apr 2014: Merged heading file for ilc manual.
+
+% ==============================================================
+% Graphics Related formatting:
+
+\usepackage{graphicx}
+%%\usepackage{ccaption}
+% Captionlength command: (see default setting in \pageformat)
+%%\newcommand{\setcaptionwidth}[1]{
+%%  \captionwidth{#1}\changecaptionwidth
+%%}
+
+% ==============================================================
+% Page Layout Settings:
+
+\usepackage{xspace}
+% the command \xspace will make sure that the right space is added 
+% at the end of a text command.  See further down for examples.
+
+\usepackage{fancyhdr}   % This might be called in other packages as well
+                        % but I've put it here as well for completeness.
+% Section Headings and labeling in the Running heads:
+\newcommand{\heading}[2]{\label{#1}
+    \markright{\small \textit{\textbf{\ref{#1}}\Findent#2}}}
+
+\newcommand{\pageformat}{       
+  \setlength{\hoffset}{5pt}           \setlength{\voffset}{5pt} 
+  \setlength{\oddsidemargin}{0pt}     \setlength{\topmargin}{0pt}
+  \setlength{\headheight}{15pt}       \setlength{\headsep}{30pt}
+  \setlength{\textheight}{600pt}      \setlength{\textwidth}{450pt}
+  \setlength{\marginparsep}{0pt}      \setlength{\marginparwidth}{0pt}
+  \setlength{\footskip}{30pt}         \setlength{\parskip}{8pt} 
+  \setlength{\parsep}{8pt}  
+  
+  \pagestyle{myheadings} 
+
+  \renewcommand{\baselinestretch}{1.1} % 1.05 / for annotations use 1.8
+
+  \renewcommand{\fnum@figure}{\textbf{\underline{Figure~\thefigure}}}
+  \renewcommand{\fnum@table}{\textbf{\underline{Table~\thetable}}}
+  \indentcaption{2\bigskipamount}
+  \captionnamefont{\sffamily\bf}
+  \setlength{\belowcaptionskip}{3\medskipamount}
+  % \captiondelim{:~}
+  % Default ccaption width, which can be changed in idividual files or floats.
+  % Note: it needs to go after page formatting.
+  \setcaptionwidth{0.9\textwidth}
+} 
+%\pageformat              
+
+% usage examples: \noskip or \noskip[2] (only works in the text env.
+\newcommand{\noskip}[1][1]{\vspace{-#1\parskip}}
+
+% ==============================================================
+% Bibliography Related Settings:
+
+\usepackage{natbib} % [nonamebreak] 
+%\bibliographystyle{agsm}
+% \setlength{\bibhang}{2.5em} % references indenting/hanging
+\setlength{\bibsep}{6pt} % bibitem separating distance
+
+\newcommand{\see}[2][see]{\citep[#1][]{#2}}
+% to get the year without brackets use \citealt
+
+% usage: \seet{citelist1}{citelist2} -> (see citelist1 and citelist2)
+% usage: \seet[A|B]{citelist1}{citelist2} -> (A citelist1 B citelist2)
+\def\seet{\futurelet\next\@r@seet}
+\def\@r@seet{\ifx\next[%
+    \let\next\@x@seet
+  \else
+    \def\next{\@x@seet[see~|and]}%
+  \fi
+  \next
+}
+\def\@x@seet[#1|#2]#3#4{(#1\citealt{#3} #2 \citealt{#4})}
+
+% The following replaces \citep[A][B]{citelist} in order to avoid a comma
+% in front of B:
+% usage: \seep{citelist1} -> (see citelist1 for illustration)
+% usage: \seep[A|B]{citelist1} -> (A citelist1 B)
+\def\seep{\futurelet\next\@r@seep}
+\def\@r@seep{\ifx\next[%
+    \let\next\@x@seep
+  \else
+    \def\next{\@x@seep[see~|for illustration]}%
+  \fi
+  \next
+}
+\def\@x@seep[#1|#2]#3{(#1\citealt{#3} #2)}
+
+% ==============================================================
+% General Shortcuts:
+
+% Forced indent:
+\newcommand{\findent}{\mbox{\hspace{\smallskipamount}}\xspace}
+\newcommand{\Findent}{\mbox{\hspace{\bigskipamount}}\xspace} % \bigskipamount
+
+\newcommand{\eg}{e.\/g.~} % latin: 'egsampli gratis' = for example
+\newcommand{\ie}{i.\/e.~} % latin: 'id este' = that is
+% Notes:
+\newcommand{\note}[1]{\emph{\textbf{#1}}}
+\newcommand{\fex}{for example\xspace}
+\newcommand{\Fex}{For example\xspace}
+\newcommand{\Fin}{For instance\xspace}
+
+% Itemize environment with italic letters as headings:
+% Note that this would be the second level of the enumerate environment:
+% Also the command in the present format does not allow nesting
+\newenvironment{itemizea}{\setcounter{enumi}{0}
+\renewcommand{\labelitemi}{\stepcounter{enumi}\textit{\textsl{\alph{enumi}) }}}
+\begin{itemize}}{\end{itemize}}
+
+% ==============================================================
+% Maths Related packages and Shortcuts:
+
+% AMS packages:
+\usepackage{amsmath,amssymb,amsfonts}
+
+% brackets/function of an argument (useful in text-line)
+\newcommand{\fn}[1]{\ensuremath{\left(#1\right)}\xspace}
+% grand equation
+\newcommand{\eq}{\ensuremath{\,=\,}}
+\newcommand{\inv}[1]{\ensuremath{\frac{1}{#1}}}
+% E[]
+\newcommand{\E}[1]{\textsl{E}\sqb{#1}}
+% Var[]
+\newcommand{\var}[1]{\textsl{Var}\sqb{#1}}
+% curly brackets/function of an argument (useful in long equations,  
+% in this way emacs can find the matching bracket)
+\newcommand{\cb}[1]{\ensuremath{\left\{#1\right\}}} % \xspace
+% square brackets/function of an argument (useful in long equations)
+\newcommand{\sqb}[1]{\ensuremath{\left[#1\right]}} % \xspace
+% sign
+\newcommand{\sign}[1]{\mbox{\textsf{sign}\fn{#1}}}
+\newcommand{\hence}{\ensuremath{\Rightarrow} }          % ==>
+        % and some of mine wich could be boxed:
+% per cent
+\newcommand{\prc}[1]{\ensuremath{#1\,\%}}
+
+% ==============================================================
+% Project specific shortcuts:
+
+\newcommand*{\asp}{age-specific\xspace}
+\newcommand*{\dem}{\rs{demography}}
+\newcommand*{\forc}{\rs{forecast}}
+\newcommand*{\ilc}{\rs{ilc}}
+\newcommand*{\LC}{Lee-Carter\xspace}
+\newcommand*{\lex}{life expectancy\xspace}
+\newcommand*{\R}{\textsf{R}\xspace}
+\newcommand*{\ra}{\ensuremath{\;<\!\!-\;}\xspace}
+\newcommand*{\rc}[1]{\findent\textsf{$>\:$#1}}
+\newcommand*{\rrtab}{\Findent\hspace{30pt}}
+\newcommand*{\rtab}{\Findent\hspace{20pt}}
+\newcommand*{\rs}[1]{\textsf{#1}\xspace}
+\newcommand*{\xt}{\ensuremath{_{xt}}\xspace}
+\newcommand*{\xtg}{\ensuremath{_{xtg}}\xspace}
+
+%change the description label formatting:
+\def\descriptionlabel#1{\hspace\labelsep \textsf{#1} :\findent}
+

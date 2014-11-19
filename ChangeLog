@@ -1,0 +1,7 @@
+v 1.0
+
+1. package has been created
+
+2. vignette has been created
+
+3. fixed ps.view function to work with either Ghostview 32 and 64 bits

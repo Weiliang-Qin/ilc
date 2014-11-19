@@ -1,0 +1,1087 @@
+%\VignetteIndexEntry{The ilc Package}
+%\VignetteDepends{demography, date, survival}
+%\VignetteKeywords{Iterative Lee-Carter methods}
+%\VignettePackage{ilc}
+
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{amsmath,amsfonts,enumitem,microtype,alltt,verbatim,subfig,bm,animate,natbib}
+\usepackage[utf8]{inputenc} 
+\usepackage{ilc}
+\usepackage[figuresright]{rotating}
+\RequirePackage[colorlinks,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\field}[1]{\mathbb{#1}}
+  
+%% Change the default page sizes.
+  
+\setlength{\topmargin}{-0.25in}
+\setlength{\textheight}{8.5in}
+\setlength{\oddsidemargin}{.0in}
+\setlength{\evensidemargin}{.0in}
+\setlength{\textwidth}{6.5in}
+\setlength{\footskip}{.5in}
+  
+\newcommand{\pkg}[1]{{\fontseries{b}\selectfont #1}}
+\newenvironment{smallexample}{\begin{alltt}\small}{\end{alltt}}
+\newenvironment{smallverbatim}{\small\verbatim}{\endverbatim}
+\graphicspath{{figs/}}
+  
+%% need no \usepackage{Sweave.sty}
+  
+    
+%\Plainauthor{Zoltan Butt, Steven Haberman, Han Lin Shang}
+  
+%\Plaintitle{The ilc Package}
+  
+
+  
+%\Plainkeywords{generalised/extended Lee-Carter models,
+    %age-period-cohort models, iterative estimation approach}
+  
+%\Address{Zoltan Butt, Steven Haberman\\
+          % Sir John Cass Business School\\
+          % City University, London \\
+          % E-mail: \email{z.butt@city.ac.uk; s.haberman@city.ac.uk}\\\\
+       %    Han Lin Shang \\
+    %       Research School of Finance, Actuarial Studies and Applied  Statistics \\
+  %         Australian National University \\
+ %          Australia \\
+%           E-mail: \email{hanlin.shang@anu.edu.au}
+%}
+  
+\begin{document}
+\SweaveOpts{concordance=FALSE}
+
+\begin{center}
+\large \textbf{The \pkg{ilc} Package}
+\end{center}
+
+\vspace{.06in}
+\begin{center}
+\textbf{Zoltan Butt, Steven Haberman} \\
+City University London \\
+\vspace{.2in}
+\textbf{Han Lin Shang} \\
+Australian National University
+\end{center}
+
+\vspace{.1in}
+
+\begin{abstract}
+We implement a specialised iterative regression methodology in \R for the analysis of age-period mortality data based on a class of generalised Lee-Carter (LC) type modelling structures. The LC-based modelling frameworks is viewed in the current literature as among the most efficient and transparent methods of modelling and projecting mortality improvements.  Thus, we make use of the GLM modelling approach discussed in~\cite{ren;hab:06}, which extends the basic LC model and proposes to make use of a tailored iterative process to generate parameter estimates based on Poisson likelihood. Furthermore, building on this methodology we develop and implement a stratified LC model for the measurement of the additive effect on the log scale of an explanatory factor (other than age and time).  This modelling methodology is implemented in a publically available collection of programming functions that facilitate both the preparation of mortality data and the fitting and analysis of the given log-linear modelling structures. The package also incorporates methods to produce forecasts of future mortality rates and to compute the corresponding future life expectancy.
+\vspace{.09in}
+
+\noindent \textit{Keywords:} generalised/extended Lee-Carter models,
+    age-period-cohort models, iterative estimation approach, statistical
+    programming in \R
+ \end{abstract}
+  
+
+  
+%% Note that you should use the \pkg{}, \proglang{} and \code{} commands.
+  
+%% Note - fragile using \label{} in \section{} - must be outside
+  
+%% For graphics
+  
+%% <<fig=TRUE,eval=TRUE, height=, width=>>= \pkg
+    
+\section{Introduction}
+
+\pkg{ilc} is a publically available \R package for the analysis of age-period mortality data that implements specialised regression and descriptive methods to fit a generalised class of LC type modelling structures. The purpose of the mortality modelling package described here is to apply an improved modelling framework, which extends the standard LC method based on the Normal error structure that was originally proposed in~\cite{lee;car:92}.  Consequently, we depart from the traditional Singular Value Decomposition (SVD) fitting method, that assumes Gaussian residuals, and instead implement a regression tool based on Poisson likelihood maximization process. In particular, we make use of the approach proposed and illustrated in~\cite{ren;hab:06}, which generalises the basic LC modelling framework and extends the work of~\cite{bro;ea:02}, to develop a tailored iterative process for updating the parameter estimates.  Furthermore, building on this methodology, we develop and implement a new modelling approach, referred to as the stratified (or extended) LC model, that can be applied to measure the overall effect of an explanatory factor (other than age and time) on the log mortality rates across all ages and periods.
+
+
+This generalised modelling methodology is implemented within the \R statistical software in the form of a purpose-built set of command functions that apply the above mentioned iterative fitting method.  The package contains methods for the analysis of a class of six different types of log-linear models in the GLM framework with Poisson errors that includes the basic LC model too. In addition, the \ilc package also include tools for the fitting and analysis of the stratified LC model.  In order to assess the goodness of fit of the regression, the estimation routines support a range of residual analyses with corresponding target fitted values, which can be visualised by specialised diagnostic plots.  The package allows preliminary data corrections, primarily in order to replace missing data-cells, but also to eliminate potential outliers that might result from data inaccuracies. Further, the package includes two simple methods of `closing-out' procedures to correct the original data at very old ages before the application of the model. Finally, the functionality of this package is currently being enhanced with the inclusion of a number of control parameters and flexible plotting methods.
+
+The remaining sections of this paper are organised as follows. Section~\ref{sec:mod} presents in detail the variants of the adopted modelling framework and discusses the main features of mortality forecasting within the \ilc application. Further, section~\ref{sec:fit} provides a brief description of the iterative fitting approach used for the estimation of the model parameters. Following on, section~\ref{sec:ilc} gives instructions for installing and using the \ilc package in \R, including how to prepare mortality data and how to fit the models and to run the regression diagnostics. Some numerical illustrations are provided using the CMI pensioners mortality data.
+
+\section{Modelling Framework}\label{sec:mod}
+%\heading{sec:mod}{Modelling Framework}
+
+The application and extension of the LC modelling approach has dominated the recent literature in the field of mortality forecasting~\seep[see~|and further references therein]{bro;ea:02,ren;hab:03a,ren;hab:03b,boo:06}.  According to~\cite{boo:06}, the LC-based approach is widely considered in the current literature  to be among the most efficient and transparent methods to date that produces fairly realistic \lex forecasts, which are used as reference values for other modelling methods. For instance, the accepted framework of modelling and projecting mortality improvements in the USA for the last decade or so has been the LC-based age-period (AP) model~\see{lee;car:92,lee:00}. Similarly, the model has been applied successfully to Canadian~\citep{lee;nau:93}, as well to Japanese~\see{wil:93} mortality data and formed part of official projections. While the model has gained acceptance in the UK too, the persistent cohort effects observed for generations born between 1925 and 1945 has led to a special adaptation of the LC method by~\cite{ren;hab:06}, developing the so-called age-period-cohort (APC) log-bilinear generalised linear models (GLM) with Poisson error structures.
+
+In terms of forecasting, the LC family of models are part of the extrapolative stochastic methods that assume that the observed historical trends of human mortality improvements will persist into the future.  Many authors consider that the relative stability of the past trends provide a sufficiently reliable basis for future projections. While the validity of these assumptions have been debated \see{gut;van:98}, the view of the majority is that these methods still offer the most effective and dependable alternative to date. Given the inherent
+complexity of the factors affecting human mortality and the lack of our
+understanding of the intricate mechanisms governing our aging process
+\citep{bro;ea:02}, econometric or structural models based on causality and interactions of biological and/or demographic factors have so far failed to give rise to plausible theory-informed forecasting methods \see{boo:06}.
+
+In the LC type modelling approach, the age effects are assumed to be constant in time and the time-variant period and/or cohort effects are projected forward using autoregressive time-series models.  Thus, the period and/or cohort factors are extrapolated in time by a stochastic ARIMA process (\eg random walk with drift) in order to make forecasts of the future force of mortality and, implicitly, future (period- and cohort-based) \lex.
+
+In the modelling framework described here, we aim to provide a common platform for fitting LC type models and making future forecasts of mortality and of \lex. Thus, we model the force of mortality based on GLM regression methods using a log-link with a class of parameterised predictors that contain bilinear terms. However, the presence of the bilinear predictors prevents the application of the standard estimation methods normally used within the GLM approach. Instead, the
+parameters are estimated through an iterative minimisation technique applied to the deviance of the non-linear model structure that is dependent on the choice of error distribution.  In the following we describe in more detail the particular modelling structures implemented in the \ilc package.
+
+\subsection{Mortality Data}\label{mod:dat}
+%\heading{mod:dat}{Mortality Data}
+
+Consider a mortality experience observed at individual ages \fn x and calendar years \fn t, giving rise to a total of \fn{k\times n} available data cells, so that we can estimate the central mortality rate \fn{m\xt} and the corresponding force of mortality \fn{\mu\xt} by
+\[ \fn{\hat\mu\xt \eq} \: \hat m\xt \eq  \frac{y\xt}{e\xt} \:, \]
+where $y\xt$ and $e\xt$ represent the number of deaths and the matching central exposure for any given subgroup, respectively.  In addition, for each combination of age $x$ and period $t$, we  define the cohort year $z=t-x$ representing the year of birth of each subgroup in the data.
+
+\subsection{Basic Age-Period (AP) LC Model}\label{mod:lc}
+%\heading{mod:lc}{Basic AP LC Model}
+
+The basic AP LC model was first proposed by~\cite{lee;car:92} and it was
+introduced as a type of principal components model of the mortality rate \fn{m\xt}
+dependent only on factors related to age and period.  The model is expressed as
+\begin{equation}\label{mu:lc}
+\text{LC :} \quad \log\fn{m\xt} 
+\eq \alpha_x + \beta_x\kappa_t + \varepsilon\xt \:,
+\end{equation}
+where the parameters are interpreted as follows:\noskip
+\begin{itemize}
+\item[$\alpha_x$] represents a constant \asp pattern of mortality; 
+\item[$\kappa_t$] measures the trend in mortality over time;
+\item[$\beta_x$] measures the \asp deviations of mortality change from the
+overall trend;
+\item[$\varepsilon\xt$] are Gaussian distributed $N\!\fn{0,\,\sigma^2}\,$
+  random effects by age and time. 
+\end{itemize}
+
+Due to the bilinear multiplicative construct \fn{\beta_x\kappa_t} present in equation~\eqref{mu:lc}, there is a clear identifiability problem that is traditionally resolved by ensuring that these parameters satisfy a pair of specified constraints, given by
+\begin{equation}\label{lc:svd}
+\sum_x \beta_x \eq 1  \:, \quad \sum_{t=t_1}^{t_n}\kappa_t \eq 0 \:.
+\end{equation}
+
+Then, the standard LC model can be estimated using the singular value
+decomposition (SVD) method that leads to the following estimator of the \asp
+effects:
+  \begin{equation}\label{ax:1}
+\hat\alpha_x=\inv{n}\,\sum_{t=t_1}^{t_n}\log\fn{\hat m\xt} \:,
+\end{equation}
+which minimises the sum of squares of the error term \fn{S =
+                                                           \sum\xt\varepsilon^2\xt}. ~\citeauthor{lee;car:92} also advocates a set of
+adjustments to the $\hat \kappa_t$ estimates in order to ensure that in each year, the total deaths predicted by the model equals the total of the observed deaths $\sum_x y\xt$.
+
+
+Subsequently, the LC model was re-evaluated in the mortality forecasting
+literature~\see{tab:01,bro;ea:02,ren;hab:03a} and it was proposed that the model can also be formulated within a GLM framework with a generalised error distribution. In this setting, the LC model parameters can be estimated by maximum likelihood (ML) methods based on the choice of error distribution. Thus, in line with traditional actuarial practice, this approach assumes that the age- and period-specific number of deaths are independent realizations from a Poisson distribution with parameters
+\begin{equation}\label{PY}
+\E{Y\xt} \eq e\xt\,\mu\xt\,, \qquad \var{Y\xt} \eq \phi\,\E{Y\xt} \:,
+\end{equation}
+where $\phi$ is a measure of over-dispersion to allow for heterogeneity (\eg from duplicate policies in the case of insurance data).  Making use of the LC type parameterization~\eqref{mu:lc}, now in terms of the force of mortality \fn{\mu\xt}, equations~\eqref{PY} correspond to a GLM model of the response variable $Y\xt$ with log-link and non-linear parameterized predictor:
+  \begin{equation}\label{glm:6}
+LC: \quad \eta\xt \eq \log\!\fn{\hat y\xt} 
+\eq \log\!\fn{e\xt} + \alpha_x + \beta_x\kappa_t \:. 
+\end{equation}
+In order to obtain unique parameter values, the above model is formulated in line with the same constraints~\eqref{lc:svd}, while $\log\!\fn{e\xt}$ is treated as an offset value during fitting.\footnote{The interpretation and treatment of model~\eqref{glm:6} in terms of a mortality reduction factor $F\!\fn{x,\,t}$ is beyond the scope of the current paper \see{ren;hab:06}.}
+
+It is important to emphasise that model~\eqref{glm:6} is conceptually different from the original LC framework~\eqref{mu:lc}, because the modelling errors have a generalised class of distribution that are determined by the direct fitting of the number of deaths instead of the logarithmic transform of the rates. That is, the GLM regression is based on ML methods with theory-based distributional assumptions in contrast to the SVD fitting, which relies on empirical measures (\ie least squares).  Indeed, the parameter estimates under the original
+framework~\eqref{mu:lc} can also be obtained within the GLM approach by
+adjusting the target variable to $Y\xt = \log\fn{m\xt}$ and applying the
+identity link function with a Normal error structure.
+
+A measure of the overall goodness of fit in the GLM settings is the scaled deviance between the observed and the fitted target variable values, which depends on the chosen distributional assumption.  Thus, ML point estimates under the GLM approach are obtained at the minimum value of the total deviance of model~\eqref{glm:6} with Poisson errors, which is given by
+\begin{equation}\label{Dxt}
+D\fn{y\xt,\,\hat y\xt}  \eq \sum_{x,\,t} dev\fn{x,t}
+\eq \sum_{x,\,t} 2\,\omega\xt\cb{y\xt\log\frac{y\xt}{\hat y\xt} 
+                                 - \fn{y\xt-\hat y\xt}} \:,
+\end{equation}
+where $dev\!\fn{x,t}$ are the deviance residuals that depend on a set of prior weights $\omega\xt$ where $\omega\xt=1$ is assigned to each non-empty data cell, with $\omega\xt=0$ for empty cells.\footnote{In contrast to the GLM approach, in the SVD fitting the application of data matrix containing empty cells is not possible.  Nonetheless, as mentioned before, the \ilc program can optionally correct missing data cells by 'closing-out' methods in order to improve fitting.}  However, standard minimisation techniques cannot be applied due to the presence of the bilinear interaction term \fn{\beta_x\,\kappa_t}. Thus, we
+resort to an alternative fitting strategy, as  described in~\cite{ren;hab:06}, which is based on an iterative Newton-Raphson method
+applied to the deviance function~\eqref{Dxt}. In section~\ref{sec:fit}, we offer a brief description of the core algorithmic rule that governs the fitting process of this approach, with specific application to the LC model summarized in section~\ref{fit:lc}.
+
+Model diagnostics of goodness of fit can be carried out by visual inspection and by formal testing of the following types of residuals, that are listed below in an increasing order of their relevance in the current modelling framework:
+  \noskip\begin{itemizea}
+\item \note{log-rates: } $\,r\xt \eq \log\fn{\mu\xt}-\log{\hat \mu\xt}\:$;
+\item \note{rates: }  \Findent\findent $r\xt \eq \fn{\mu\xt}-\fn{\hat \mu\xt}\:$;
+\item \note{deaths: } \findent\findent $r\xt \eq y\xt-\hat y\xt \eq e\xt\,\mu\xt 
+- e\xt\,\hat\mu\xt\:$;
+\item \note{deviance: } $r\xt \eq \sign{y\xt-\hat
+                                        y\xt}\sqrt{\frac{dev\xt}{\hat\phi}}\:,\qquad
+\hat\phi \eq \frac{D\fn{y\xt,\,\hat y\xt}}{\nu}\:$,\\
+where $\hat\phi$ is an empirical scaling factor and $\nu$ represents the
+degrees of freedom, dependent on the particular model structure.
+\end{itemizea}
+
+Thus, in the \ilc package, we make available plotting methods that can
+produce residual plots of the above residuals with respect to age, period and year of birth. The latter can be used also to check for cohort effects in case these are not directly measured in the model.  As an additional model diagnostic, the program can also make plots of the fitted values (\ie either mortality rates or number of deaths) against age and period.
+
+\subsection{Generalized Family of LC Models}\label{mod:flc}
+%\heading{mod:flc}{Generalized LC Models}
+
+In a more recent development, the basic setting has been further extended to include an additional bilinear term, containing a second period effect~\see[as in]{ren;hab:03b} or a cohort effect~\see[as in]{ren;hab:06}. In particular, the latter approach sheds new light on the early 20th century England and Wales mortality patterns. Thus, the basic LC model can be transformed into a more general framework in order to analyse the relationship between age and time and their joint impact on the mortality rates. In the current application, we follow
+the APC modelling framework and fitting methodology proposed
+by~\cite{ren;hab:06} that specifies the force of mortality by a generalised structure written as
+\begin{equation}\label{mu:1}
+M: \quad \mu\xt \eq \exp\fn{\alpha_x + \beta_x^{\fn0}\iota_{t-x} +
+                              \beta_x^{\fn1}\kappa_t} \:,
+\end{equation}
+where $\alpha_x$ maps the main age profile of mortality, $\iota_{t-x}$ and $\kappa_t$ represent the cohort and period effects, respectively, whereas $\beta_x^{\fn0}$ and $\beta_x^{\fn1}$ parameters measure the corresponding interactions with age.
+
+We note that model~\eqref{mu:1} represents a family of six generalized
+non-linear models of the LC type structure with log-link function. The
+sub-categories of the overall model can be defined by independently setting the interaction parameters \fn{\beta_x^{\fn{0,\,1}}} to one of the following:
+  \noskip\begin{itemizea}
+\item  unknown (to be
+                estimated);
+\item =1 (fixed);
+\item =0 (void).
+\end{itemizea}
+Thus, the basic LC type structure results by defining the \asp parameters as
+\[  LC: \quad \beta_x^{\fn0} = 0\: \fn{\forall\, x} \:\text{ and }\: 
+      \beta_x^{\fn1}=\beta_x \:. \]
+Alternative formulation can result by cancelling out the period effect
+altogether and maintaining only the age and the cohort effects, as follows:
+  \[ AC: \quad \beta_x^{\fn0}=\beta_x\,   \:\text{ and }\: 
+       \beta_x^{\fn1} = 0\: \fn{\forall\, x} \:.  \] 
+Following the same approach, other 3 substructures can be defined,
+namely \see[using the notations introduced by]{ren;hab:06}: 
+  \[ H_0: \: \beta_x^{\fn{0,\,1}}=1\,; \qquad H_1: \: \beta_x^{\fn0}=1\,;
+     \qquad H_2: \: \beta_x^{\fn1}=1 \:.  \]
+
+We note that the main regression function of the \ilc package implements all six substructures of model~\eqref{mu:1} making use of either the Gaussian or the Poisson error distribution.  The overall estimation of this class of model structures proceeds along the same iterative minimisation techniques, which are described in section~\ref{sec:fit}.  However, in order to obtain unique parameter estimates, we need to make slight modifications to the parameter updating cycle depending on the particulars of the sub-structure. Given its overwhelming importance, we illustrate the algorithmic rule of the most general APC framework (\ie model $M$) in part~\ref{fit:elc}.
+
+\subsection{Stratified (or Extended) LC Model}\label{mod:elc}
+%\heading{mod:elc}{Stratified (or Extended) LC Model}
+
+The purpose of the methodology described here is to quantify the differences in the mortality experience of population subgroups differentiated by an additional measurable covariate (other than age and period). This is a new modelling approach that assumes a direct additive effect of an observable factor on the log mortality rates across all ages and calendar time periods. Clearly, the usefulness of an all-encompassing additional factor strongly depends on the size
+and nature of the mortality experience.  Examples where additional effects might exist that could act constantly across age and time in human mortality experience include factors related to geographical, socio-economic or race differences. The modelling framework and estimation methodology proposed here builds on the previous LC type structure with Poisson errors presented in the previous section.
+
+Consider a cross-classified mortality experience observed over age \fn x, period \fn t and an extra variate \fn g, made up of  \fn{k\times n\times l} data cells, such that we can estimate the central mortality rates \fn{ m\xtg} and the force of mortality \fn{\mu\xtg} for any given subgroup by the ratio of the number of deaths and the corresponding central exposure (see section~\ref{mod:dat}). 
+
+As in the previous approaches, our aim is to model the number of deaths
+\fn{y\xtg} within a generalized LC framework with a Poisson error structure, shaped by the following parameterized (non-linear) predictor:
+  \begin{equation}\label{SLC}
+SLC: \quad \eta\xtg \eq \log\!\fn{\hat y\xtg}  
+\eq \log\!\fn{e\xtg}+\alpha_x \,+\, \alpha_g + \beta_x\,\kappa_t \:,
+\end{equation}
+where $\log\!\fn{e\xtg}$ is treated as an offset value during fitting and the model parameters are subject to the usual constraints defined in
+equations~\eqref{lc:svd}.
+
+We note that relationship~\eqref{SLC} can be viewed as an adjusted LC model, whereas the overall trend of mortality change \fn{\kappa_t} over time and its interaction \fn{\beta_x} with age is the same for the entire population, while the main effect is now \emph{stratified} in order to capture both the effect of age and an additional variate \fn g, namely:
+  \[ \hat\mu\xtg \eq \exp\fn{\alpha_{x\,g} + \beta_x\,\kappa_t} \:, \]
+where $\alpha_{x\,g}=\alpha_x+\alpha_g$.  We note that, in this formulation, the parameter $\alpha_g$ measures the relative differences between the \asp mortality profiles on the log scale of the population subgroups defined by the extra variate \fn g.  It is interesting to observe that this modelling structure corresponds to the ``common factor'' model of~\cite{li;lee:05}. The estimation method of this modelling framework is presented in more detail in section~\ref{fit:slc}.
+
+This is the simplest extension of the LC model to allow for stratification. More complex models involving $\beta_{xg}$ and $\kappa_{tg}$ could also be introduced --- these are left for future development.
+
+
+\subsection{Forecasting Approach}\label{mod:for}
+%\heading{mod:for}{Forecasting Approach}
+
+The forecasting of mortality rates in the case of the LC family of
+models~\eqref{mu:1} is based on time series prediction of the calendar time dependent parameters \fn{\iota_{t-x},\,\kappa_t}.  This can be written as follows:
+  \begin{equation}\label{mu:dot}
+\dot \mu_{x,\,t_n+s} \eq \exp\fn{\hat\alpha_x 
+                                 + \hat\beta_x^{\fn0}\dot\iota_{t_n+s-x} 
+                                 + \hat\beta_x^{\fn1}\dot\kappa_{t_n+s}} \;,\quad s>0 \:,
+\end{equation}
+where $\dot\iota_{t_n+s-x}$ and $\dot\kappa_{t_n+s}$ represent the forecasted cohort and period effects, respectively.  Observe that, in the case of cohort effects, the forecasted values revert to the fitted parameters \fn{\ie\; \dot\iota_{t_n+s-x}=\hat\iota_{t_n+s-x}} whenever the forecasting horizon falls within the available data range \fn{\ie\;\forall\, s\leq x-x_1}. This forecasting method allows us to generate future average values and to evaluate the future variability of the central mortality rates. In turn, the variability of the predictions can be applied to measure the uncertainty in the longevity risk.\footnote{We recognise that a method based purely on the extrapolated time dependent parameters might fail to capture all of the variability in future predicted values because it does not allow for the uncertainty in the other model parameters. However, as noted by~\cite{lee;car:92}, this simplified approach should still provide a good approximation for the calculation of the prediction intervals.  This has recently been explored in extensive bootstrapping investigations, as evidenced, \fex by~\cite{ren;hab:08,hab;ren:09b}.} 
+
+The most common type of time series extrapolation methods applied in the LC framework are the univariate ARIMA (Auto-Regressive Integrated Moving Average) processes, which are characterised by three parameters \fn{p,\,d,\,q}. The type of ARIMA model used depends on the fitted parameter profile within the available data range (\eg the size of deviations from the mean, extent of stationarity etc.).  In the majority of applications of the LC framework the random walk with drift (0,1,0) is the usual choice for the period effects \fn{\kappa_t}, which can be expressed as:
+  \begin{equation}\label{kt}
+\kappa_t \eq \kappa_{t-1} + d + e_t \:,
+\end{equation}
+where $d$ measures the drift in the form of average annual deviations and $e_t$ represents the white noise in the stochastic process.  
+
+According to~\cite{boo;ea:06}, ARIMA(0,1,0) is a reasonable choice in the cases where there is a stable linear tendency in the annual mortality improvements, but would be inappropriate for the cases characterised by regular dynamic changes in slope (\ie non-linear).  Nevertheless, the authors have found that this model has performed well in many large data applications, even when a more complex model might have been indicated by the shape of the period effects. Similarly, on inspection of the output results of our own empirical trials, we
+are satisfied that this method is appropriate for many human mortality data sets.  In the current version of the \ilc package, there are methods only for the time dependent parameter to be projected forward, although with slight adjustments it is possible to extrapolate (indirectly) the cohort dependent parameter values too.  In future versions, we plan to implement complete and automated forecasting methods using a wider range of ARIMA models for all six modelling structures considered in this application.  Note there are several choices for the forecast formula -- thus, equation~\eqref{mu:dot} uses the model $\mu_{x,\,t_n}$ as the jump off value for forecasting.  We could also use last
+observed data point $\hat\mu_{x,\,t_n}$ \see{lee:00} or an average value.
+
+\section{Fitting Methodology}\label{sec:fit}
+%\heading{sec:fit}{Fitting Methodology}
+
+As mentioned before, the fitting methodology implemented in this application is based on an iterative algorithm that minimises the deviance function. That is, we make use of a cyclical updating process of the parameter estimates until the minimum difference between the likelihood of the fitted model and the likelihood of the saturated model (\ie one parameter for each observation) is achieved. Thus, the updating mechanism for a given parameter $\theta$ is provided by the Newton-Raphson minimisation method applied to the deviance function, which
+can be expressed as
+\begin{equation}\label{u}
+u(\hat\theta) \eq \hat\theta \,-\, \frac{\frac{\partial\, D}{\partial\, \theta}}
+{\frac{\partial^2\, D}{\partial\, \theta^2}} \:.
+\end{equation}
+
+
+Looking at the deviance function~\eqref{Dxt} with Poisson error structure, we
+can observe that
+\begin{align}\label{dD}
+\frac{\partial\, D}{\partial\, \theta}  \eq \sum \frac{\partial\,
+                                                       dev}{\partial\, \theta} 
+& \eq \sum 2\,\omega\cb{-y\,\frac{\hat y'}{\hat y} + \hat y'} \nonumber \\ 
+                        & \eq  \sum 2\,\omega\,\frac{\hat y'}{\hat y}\fn{\hat y-y} 
+                                                     \eq \sum 2\,\omega\, a \fn{\hat y-y} \:,
+                                                     \end{align}
+                                                     where 
+                                                     \[  
+                                                     \hat y' \eq \frac{\partial\, \hat y}{\partial\, \theta} \;\hence \;
+                                                     \left\{
+                                                       \begin{array}{l} 
+                                                        \frac{\partial\, \hat y}{\partial\, \alpha_x} \eq \hat y \\[3pt]
+                                                        \frac{\partial\, \hat y}{\partial\, \beta_x} \eq \kappa_t \, \hat y\\[3pt]
+                                                        \frac{\partial\, \hat y}{\partial\, \kappa_t} \eq \beta_x \, \hat y
+                                                        \end{array}\right. \eq a\,\hat y \qquad\text{such that} \: 
+                                                          \left\{
+                                                            \begin{array}{l} 
+                                                            a = 1 \\[3pt]
+                                                            a = \kappa_t \\[3pt]
+                                                            a = \beta_x 
+                                                            \end{array}\right. \:.
+                                                            \] 
+Making use of the above simplified notations, we can express the second partial derivative of the deviance function as follows:
+  \begin{equation}\label{ddD}
+\frac{\partial^2\, D}{\partial\, \theta^2} \eq \sum 2\,\omega\,a\,\hat y' 
+\eq \sum 2\,\omega\,a^2 \hat y \:.
+\end{equation}
+
+Substituting the expressions~\eqref{dD} and \eqref{ddD} into~\eqref{u} yields the following general fitting routine:
+\begin{equation}\label{u2}
+u(\hat \theta) \eq \hat \theta \,-\, \frac{\sum 2\,\omega\, a \fn{\hat y-y} }
+{\sum 2\,\omega\,a^2 \hat y } \eq \hat \theta \,+\, 
+\frac{\sum 2\,\omega\, a \fn{y-\hat y} }{\sum 2\,\omega\,a^2\,\hat y }\:.
+\end{equation}
+
+We note that similar updating rule can be determined in the case of the model with Gaussian distributed errors~\see{ren;hab:06}.  Without going into further details, we note that the \ilc package implements the updating algorithms corresponding to the models with both Gaussian and Poisson error structures. For the purpose of the current paper, in the following parts we focus on the detailed estimation methodology of the latter with respect to the base LC, the APC and the SLC modelling frameworks.
+
+\subsection{Updating cycle of the base LC fitting}\label{fit:lc}
+%\heading{fit:lc}{Basic LC fitting method}
+
+
+\begin{enumerate}
+\item\findent \underline{Get appropriate initial values:}\\[7pt]
+$\hat \alpha_x = \inv{n}\,\sum_{t} \log\,\hat m\xt$ 
+(\ie make use of the SVD estimate~\eqref{ax:1}); \\
+$\hat \beta_x = \inv{k}; \quad \hat \kappa_t = 0\;. $\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D(y\xt,\,\hat
+y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat\alpha_x\,$:}\\
+\[\hat\alpha_x \eq \hat\alpha_x \;+\; 
+\frac{\sum_{t} 2\,\omega \fn{y-\hat y} }{\sum_{t} 2\,\omega\,\hat y }
+\]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, 
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D(y\xt,\,\hat
+y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat\kappa_t\,$:}\\
+\[\hat\kappa_t \eq \hat\kappa_t \;+\; 
+\frac{\sum_{x} 2\,\omega \fn{y-\hat y} }
+{\sum_{x} 2\,\omega\,\hat \beta_x^2\,\hat y } \]\\
+\Findent -- adjust the updated parameter
+such that $\;\hat\kappa_t=\hat\kappa_t-\overline{\hat\kappa_t}\;$;\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, 
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance
+$D(y\xt,\,\hat y\xt)\;$.
+\item \findent \underline{Update parameter $\hat \beta_x\,$:}\\
+\[\hat \beta_x \eq \hat \beta_x \;+\; 
+\frac{\sum_{t} 2\,\omega \fn{y-\hat y} }
+{\sum_{t} 2\,\omega\, \hat\kappa_t^2\,\hat y}  \]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, 
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D_u(y\xt,\,\hat
+y\xt)\;$.
+\item \findent\underline{Check deviance convergence:}
+\[\Delta D \eq D - D_u \]
+were $D_u$ is the updated deviance at step~4.\\
+\Findent --  if $\Delta D > 1\times 10^-6 \quad \Rightarrow\:$ goto step~2. \\
+\Findent -- Stop iterative process once $\Delta D \approx 0\,$ and take the fitted
+parameters as the ML estimates to the observed data.\\
+\Findent -- Alternatively, stop if $\Delta D < 0$ for a consecutive 5 updating
+cycles and consider using other starting values or declare the iterations 
+non-convergent. 
+\item \findent\underline{Once convergence is achieved, re-scale the interaction
+parameters: $\hat \beta_x$ and $\hat\kappa_t\,$:} \\
+\[  \hat \beta_x = \frac{\hat \beta_x}{\sum_x \hat \beta_x}\:;
+\qquad \hat\kappa_t = \hat\kappa_t \times \fn{\sum_x \hat \beta_x} \:, \] 
+in order to satisfy the usual LC model constraints
+$\sum_t\kappa_t=0$ and $\sum_x \beta_x=1$.
+\end{enumerate}
+
+\subsection{Updating cycle of APC fitting}\label{fit:elc}
+%\heading{fit:elc}{APC fitting method}
+
+
+
+In the full age-period-cohort GLM model~\eqref{mu:1}, the sum
+$\log\fn{e\xt}+\alpha_x$ is treated as an offset value.  Consequently, the
+$\alpha_x$ parameter is not adjusted during the iterative process when both 
+the year and the cohort effects are included in the model structure.  
+
+\begin{enumerate}
+\item\findent \underline{Estimate the (fix) age effects:}\\[7pt]
+$\hat \alpha_x = \inv{n}\,\sum_{t} \log\,\hat m\xt$ 
+(\ie make use of the SVD estimate~\eqref{ax:1}); 
+\item\findent \underline{Get appropriate initial values:}\\[7pt]
+$\hat \beta_x^{\fn0}=\hat \beta_x^{\fn1} = \inv{k};$\\
+Estimate the simplified period-cohort predictor (\ie model $H_0$, see
+section~\ref{mod:flc}):\\\Findent 
+$\eta\xt = \fn{\log\fn{e\xt}+\alpha_x}+\iota_z+ \kappa_t;$\\
+in order to get initial values for $\iota_z$ and $\kappa_t\,.$\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x^{\fn0},\, \beta_x^{\fn1},\, \hat\iota_z,\,\hat \kappa_t) \;\rightarrow\;$
+calculate deviance $D(y\xt,\,\hat y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat\iota_z\,$:}\\
+\[\hat\iota_z \eq \hat\iota_z \;+\; 
+\frac{\sum_{x} 2\,\omega \fn{y-\hat y} }
+{\sum_{x} 2\,\omega\,\fn{\hat \beta_x^{\fn0}}^2\,\hat y } \]\\
+\Findent -- shift the updated parameter
+such that $\;\hat\iota_z=\hat\iota_z-\hat\iota_1\;$;\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x^{\fn0},\, \beta_x^{\fn1},\, \hat\iota_z,\,\hat \kappa_t) \;\rightarrow\;$
+calculate deviance $D(y\xt,\,\hat y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat \beta_x^{\fn0}\,$:}\\
+\[\hat \beta_x^{\fn0} \eq \hat \beta_x^{\fn0} \;+\; 
+\frac{\sum_{t} 2\,\omega \fn{y-\hat y} }
+{\sum_{t} 2\,\omega\, \hat\iota_z^2\,\hat y}  \]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x^{\fn0},\, \beta_x^{\fn1},\, \hat\iota_z,\,\hat \kappa_t) \;\rightarrow\;$
+calculate deviance $D(y\xt,\,\hat y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat\kappa_t\,$:}\\
+\[\hat\kappa_t \eq \hat\kappa_t \;+\; 
+\frac{\sum_{x} 2\,\omega \fn{y-\hat y} }
+{\sum_{x} 2\,\omega\,\fn{\hat \beta_x^{\fn1}}^2\,\hat y } \]\\
+\Findent -- shift the updated parameter
+such that $\;\hat\kappa_t=\hat\kappa_t-\hat\kappa_1\;$;\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x^{\fn0},\, \beta_x^{\fn1},\, \hat\iota_z,\,\hat \kappa_t) \;\rightarrow\;$
+calculate deviance $D(y\xt,\,\hat y\xt)\;$. 
+\item \findent \underline{Update parameter $\hat \beta_x^{\fn1}\,$:}\\
+\[\hat \beta_x^{\fn1} \eq \hat \beta_x^{\fn1} \;+\; 
+\frac{\sum_{t} 2\,\omega \fn{y-\hat y} }
+{\sum_{t} 2\,\omega\, \hat\kappa_t^2\,\hat y}  \]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\,
+\hat \beta_x^{\fn0},\, \beta_x^{\fn1},\, \hat\iota_z,\,\hat \kappa_t) \;\rightarrow\;$
+calculate deviance $D(y\xt,\,\hat y\xt)\;$. 
+\item \findent\underline{Check deviance convergence:}
+\[\Delta D \eq D - D_u \]
+were $D_u$ is the updated deviance at step~6.\\
+\Findent --  if $\Delta D > 1\times 10^-6 \quad \Rightarrow\:$ goto step~3. \\
+\Findent -- Stop iterative process once $\Delta D \approx 0\,$ and take the fitted
+parameters as the ML estimates to the observed data.\\
+\Findent -- Alternatively, stop if $\Delta D < 0$ for a consecutive 5 updating
+cycles and consider using other starting values or declare the iterations 
+non-convergent. 
+\item \findent\underline{Once convergence is achieved, re-scale the interaction
+parameters: $\hat \beta_x^{\fn0}$, $\hat \beta_x^{\fn1}$, $\hat\iota_z$  and $\hat\kappa_t\,$:} \\
+\[\hat \beta_x^{\fn0} = \frac{\hat \beta_x^{\fn0}}{\sum_x\hat \beta_x^{\fn0}}\:, \quad 
+\hat \beta_x^{\fn1} = \frac{\hat \beta_x^{\fn1}}{\sum_x \hat \beta_x^{\fn1}}\:; \qquad
+\hat\kappa_t = \hat\kappa_t
+\times \fn{\sum_x \hat \beta_x^{\fn1}} \:, \] 
+in order to satisfy the APC model constraints $\sum_x \beta_x^{\fn0}=\sum_x
+\beta_x^{\fn1}=1$ and $\sum_t\kappa_t=0$.
+\end{enumerate}\vspace{5pt}
+
+\subsection{Updating cycle of SLC fitting}\label{fit:slc}
+%\heading{fit:slc}{SLC fitting method}
+
+Due to the stratified nature of the main effect variable \fn{\alpha_{x\,g}} and the target Poisson error structure, the parameters of model~\eqref{SLC} cannot be fitted by the SVD method used in the traditional LC approach. Therefore, in order to estimate the above SLC model~\eqref{SLC} we make use of the iterative methodology given in section~\ref{sec:fit} by making a few necessary adjustments to allow for the extra explanatory variable \fn{\alpha_g\,}. Thus, the extended
+deviance function of model~\eqref{SLC} with Poisson errors is given by the sum of the deviance residuals in all of the available data cells, and this can be written as:
+\begin{equation}\label{Dg}
+D\fn{y\xtg,\,\hat y\xtg}  \eq \sum_{x,\,t,\,g} dev\fn{x,t,g}
+\eq \sum 2\,\omega\cb{y\log\frac{y}{\hat y} - \fn{y-\hat y}} \:,
+\end{equation}
+where in the last sum notation we drop the subscripts for the sake of simplicity.
+
+Then, we make the corresponding adjustments regarding the extra dimension in the model, so that the Newton-Raphson minimising routine of the adjusted deviance function~\eqref{Dg} can proceed along similar lines to those described earlier. Thus, we can make use of equations~\eqref{dD} and \eqref{ddD} in order to find the first and the second order differentials, as follows:
+\[ \frac{\partial\, \hat y}{\partial\, \alpha_g} 
+\eq \hat y \quad \fn{=a\,\hat y}\:.   \]
+Hence, one needs to substitute $a = 1$ value in the updating rule~\eqref{u2} corresponding to parameter~$\alpha_g\,$.  The iterative calculations need to take into account the higher dimension in the cross-classified data by age, period and factor $g\,$.  In the following, we demonstrate the adjusted updating cycle that allows for this extra dimension in the observed mortality experience.
+
+
+\begin{enumerate}
+\item\findent \underline{Get appropriate initial values:}\\[7pt]
+$\hat \alpha_x = \inv{n\times l}\,\sum_{t,\,g} \log\,\hat m\xtg$ 
+(\ie the average logrates across all $t,\,g$ indexed cells); \\
+$\hat\alpha_g = 0; \quad \hat \beta_x = \inv{k}; \quad \hat \kappa_t = 0
+\;. $\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, \hat \alpha_g,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D(y\xtg,\,\hat
+y\xtg)\;$. 
+\item \findent \underline{Update parameter $\hat\alpha_x\,$:}\\
+\[  \hat\alpha_x \eq \hat\alpha_x \;+\; 
+\frac{\sum_{t,\,g} 2\,\omega \fn{y-\hat y} }
+{\sum_{t,\,g} 2\,\omega\,\hat y }  \]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, \hat \alpha_g,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D(y\xtg,\,\hat
+y\xtg)\;$. 
+\item \findent \underline{Update parameter $\hat\alpha_g\,$:}\\
+\[\hat\alpha_g \eq \hat\alpha_g \;+\; 
+\frac{\sum_{x,\,t} 2\,\omega \fn{y-\hat y} }
+{\sum_{x,\,t} 2\,\omega\,\hat y } \]\\
+\Findent -- adjust the updated parameter such that 
+$\;\hat \alpha_g = \hat \alpha_g - \hat \alpha_{g_1}$, where $g_1$ is the first 
+level/group of the extra variate $g\,$ (\ie set  the first level as a base value);\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, \hat \alpha_g,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance
+$D(y\xtg,\,\hat y\xtg)\;$.
+\item \findent \underline{Update parameter $\hat\kappa_t\,$:}\\
+\[\hat\kappa_t \eq \hat\kappa_t \;+\; 
+\frac{\sum_{x,\,g} 2\,\omega \fn{y-\hat y} }
+{\sum_{x,\,g} 2\,\omega\,\hat \beta_x^2\,\hat y } \]\\
+\Findent -- adjust the updated parameter
+such that $\;\hat\kappa_t=\hat\kappa_t-\overline{\hat\kappa_t}\;$;\\
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, \hat \alpha_g,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance
+$D(y\xtg,\,\hat y\xtg)\;$.
+\item \findent \underline{Update parameter $\hat \beta_x\,$:}\\
+\[\hat \beta_x \eq \hat \beta_x \;+\; 
+\frac{\sum_{t,\,g} 2\,\omega \fn{y-\hat y} }
+{\sum_{t,\,g} 2\,\omega\, \hat\kappa_t^2\,\hat y}  \]
+$\;\rightarrow\;$ calculate fitted values $\hat y(\hat \alpha_x,\, \hat \alpha_g,\,
+\hat \beta_x,\, \hat \kappa_t) \;\rightarrow\;$ calculate deviance $D_u(y\xtg,\,\hat
+y\xtg)\;$.
+\item \findent\underline{Check deviance convergence:}
+\[\Delta D \eq D - D_u \]
+were $D_u$ is the updated deviance at step~5.\\
+\Findent --  if $\Delta D > 1\times 10^-6 \quad \Rightarrow\:$ goto step~2. \\
+\Findent -- Stop iterative process once $\Delta D \approx 0\,$ and take the fitted
+parameters as the ML estimates to the observed data.\\
+\Findent -- Alternatively, stop if $\Delta D < 0$ for a consecutive 5 updating
+cycles and consider using other starting values or declare the iterations 
+non-convergent. 
+\item \findent\underline{Once convergence is achieved, re-scale the interaction
+parameters: $\hat \beta_x$ and $\hat\kappa_t\,$:} \\
+\[  \hat \beta_x = \frac{\hat \beta_x}{\sum_x \hat \beta_x} \qquad;\qquad 
+\hat\kappa_t = \hat\kappa_t \times \fn{\sum_x\hat \beta_x} \:, \] 
+in order to satisfy the usual LC model constraints $\sum_t\kappa_t=0$ and 
+$\sum_x \beta_x=1$.
+\end{enumerate}
+
+\section{Application of the Generalized LC Models in R with ilc}\label{sec:ilc}
+%\heading{sec:ilc}{Application of the Generalized LC Models in \R with \ilc}
+
+In the following, we present the most important features of using the \ilc package to fit and analyse age and time dependent mortality models in \R.\footnote{A gentle introduction for beginners about methods of statistical analysis and graphical illustration in the \R programming environment is provided in~\cite{ven;ea:05}.}  The data manipulation and regression methods are illustrated in context of the CMI (lives) data containing the mortality experience of male life office pensioners retiring at or after normal retirement age. The data is made up of observed central exposure and deaths for ages 50-108, all durations combined, investigation years 1983-2003 (Source: Continuous Mortality Investigation).  The main regression and diagnostic methods
+used in the \ilc package are adequate to run independently, however most data formatting and \lex forecasting features are built such that to integrate with the \dem and \forc packages of \R, written by Rob J Hyndman.\footnote{Detailed reference manuals of the \dem and other complementary packages are available at URL: \href{http://www.robhyndman.info/Rlibrary/demography}{www.robhyndman.info/Rlibrary/demography}.}  However, the \ilc package accommodates many specific methods which allow improved inspection and graphical visualisation of both the mortality data and the regression outputs.
+
+\subsection{Preparing the Mortality Data for Analysis}\label{ilc:dat}
+%\heading{ilc:dat}{Preparing the Mortality Data for Analysis}
+
+In order to fit the generalised LC type family models the mortality data need to be arranged in a \rs{demogdata} class format of the \dem package.  \Fin, assuming that the above mentioned CMI mortality experience is made up by the cross-tabulated mortality rates (\rs{mu}) and the central exposures (\rs{e}) by individual ages (\rs{x}) and calendar years (\rs{t}) sequences, we can create an \R data object (\rs{dd.cmi.pens}) for the generalised LC analysis by making use of the following purpose-built function:\\[7pt] \rc{dd.cmi.pens \ra demogdata(data=mu, pop=e, ages=x, years=t,
+                              type=''mortality'',\\
+                              \rtab label=''CMI'', name=''male'') } \\[7pt]
+where the arguments \rs{data} and \rs{pop} must be matrices (or data-frames) of equal dimensions.  Also, the arguments \rs{label} and \rs{name} are additional (string) qualifiers that specify the origin and the series (\eg gender) of the data, respectively.  Such data objects can contain more than one set of mortality experiences that can be identified by the \rs{name} argument.  For further details and examples of using the \rs{demogdata} format/function, the reader is referred to the \dem package manual. Following on, a summary description can be
+printed out by typing the data object's name:\\[3pt]
+\rc{dd.cmi.pens\\
+\rtab Mortality data for CMI\\
+\rrtab Series: male\\
+\rrtab Years: 1983 - 2003\\
+\rrtab Ages: 50 - 108}
+
+\noindent Alternatively, more detailed data inspections and/or graphical 
+illustrations may be produced using the following type of commands:\footnote{Observe here that only the available segments of data are
+used whenever the ages and/or years sequences mismatch the given data array.}
+\noskip\begin{itemize}\renewcommand{\labelitemi}{--}
+\item print a query table of mortality rates:\\
+\rc{insp.dd(dd.cmi.pens, age=50:80, year=1985:1990)} 
+\item print a query table of central exposures:\\
+\rc{insp.dd(dd.cmi.pens, what='pop', age=70:100, year=1988:1993)}
+\item print a query table of number of deaths:\\
+\rc{insp.dd(dd.cmi.pens, what='deaths', age=seq(100), year=1980:2010)}
+\item produce simple plots (\ie without legend) of log- or untransformed
+rates:\\  
+\rc{plot(dd.cmi.pens)}\\
+\rc{plot(dd.cmi.pens, transf=F)}
+\item produce annotated plots (\ie with legend) of log- or untransformed
+rates:\\
+\rc{plot\_dd(dd.cmi.pens, xlim=c(40, 110),
+lpar=list(x.int=-0.2, y.int=0.9, cex=0.85))}\\
+where the optional \rs{lpar} list controls the legend layout (see pane \emph{a)}
+of Figure~\ref{dd.p})\\
+\rc{plot\_dd(dd.cmi.pens, year=1985:1995, transf=F)}\\
+\rc{plot\_dd(dd.cmi.pens, year=1995:1997, transf=F, lty=1:3, col=1:3)}
+\item produce annotated plots of number of deaths: (see pane \emph{b)}  of 
+Figure~\ref{dd.p})\\
+\rc{tmp.d \ra extract.deaths(dd.cmi.pens, ages=55:100)\\
+\rtab \# without correction of empty cells, or}\\
+\rc{tmp.d \ra extract.deaths(dd.cmi.pens, ages=55:100, fill='perks')\\
+\rtab \# This makes use of fill.demogdata() function to replace all \\
+\rtab \# empty cells using the 'Perks' model (see \ilc source code).\\
+\rtab \# Other correction methods available are: 'interpolate' and 'mspline'\\
+\rtab \# (see \dem package manual).}\\
+\rc{tmp.d\$type \ra 'mortality'}\\
+\rc{plot\_dd(tmp.d, year=1995:2003, transf=F, lty=1:8)}
+\end{itemize}
+
+% CMI data: log-rates and number of deaths
+\begin{figure}[!htb]
+\vspace{-10pt}
+\center{
+\includegraphics[width=\textwidth]{dd-p} \\[-33pt]
+\hfill \emph{a)} \Findent\hfill\hfill \emph{b)} \Findent\hfill
+}
+\caption{Illustration of CMI (lives) pensioners mortality experience:\newline 
+\emph{a)} log central  mortality rates and \emph{b)} observed
+number of deaths.}
+\label{dd.p} \vspace{-10pt}
+\end{figure}
+
+Since in the case of the SLC model, the mortality experience is cross-classified by an additional covariate, the data set is best represented by a three dimensional matrix (\ie \rs{array}).  For this purpose, the \ilc package introduces a special class of data object (\rs{rhdata}) that holds the necessary information about the grouping factors and the aggregate data of number of deaths, central exposures and the corresponding mortality rates. \Fex, consider a raw data set (\rs{tab}) that comes in the form of individual observations of survival times and additional covariate(s), such as:\\[3pt]
+\rc{tab[1:5, ] \findent \# show first 5 observations only \noskip
+\begin{tabbing}
+111111\=11111111\=11111111\=1111111\=11111111\=11111111\=111111111111\=1111111111111\=1111111111111\kill
+refno \>   dob \>  dev \> event \>cov1 \> cov2   \> \>  (dob) \>  (dev) \\
+1 \> -14485 \>15177   \>  1  \> k \> 1 \> \>    05/05/1920  \> 21/07/2001  \\
+2 \> -13993 \>15177   \>  1  \> j  \> 1 \> \>   09/09/1921  \> 21/07/2001 \\
+3 \> -15800 \>15177   \>  0  \> a  \> 3 \> \hspace{30pt}\hence  \> 28/09/1916  \> 21/07/2001   \\
+4 \> -15973 \>15177   \>  1  \> c \>  2 \> \>   08/04/1916  \> 21/07/2001   \\
+5 \> -12776 \>15177   \>  1  \> j \>  1\> \>    08/01/1925  \> 21/07/2001  
+\end{tabbing}}
+\noskip\noindent where the columns headed \rs{dob} and \rs{dev} represent the date of birth and of the date of event (\ie 1=death, 0=survive), respectively, of individual cases with reference \rs{refno}, that must be entered in a format of class \rs{date} (\ie Julian dates -- number of days since 1/1/1960, see \rs{survival} package manual).  Further, the last columns, headed \rs{cov1} and \rs{cov2}, represent some additional grouping factors (other than age and time) with observable levels \rs{a--m} and \rs{1--3}, respectively. Then the
+\rs{rhdata} function of \ilc can extract the aggregate data matrices for
+individual ages 60--95 over the period 2000--2005 by, say, \rs{cov1} and place them in the appropriate format:\footnote{We note that the column names \rs{dob}, \rs{dev} and \rs{event} of the source data set (\rs{tab}) cannot be changed.}
+\\[7pt]
+\rc{mtab \ra rhdata(dat=tab, covar='cov1', xbreaks=60:96, xlabels=60:95,\\
+\rtab ybreaks=mdy.date(1,1,2000:2006), ylabels=2000:2005, name='M',
+label='MDat')} \\[7pt]
+A short synopsis about the data source and the cross-tabulation parameters can
+be printed out by typing the newly created \rs{rhdata} object's name:\\[7pt]
+\rc{mtab\\
+    \rtab Multidimensional Mortality data for: MDat [M]\\
+    \rtab Across covariates:\\
+    \rrtab        years: 2000 - 2005\\
+    \rrtab          ages:  60 - 95\\
+    \rrtab cov1: a, b, c, d, e, f, g, h, i, j, k, l, m}\\[7pt]
+Here, we note that the sub-grouping of the data set can be carried out by more than one additional covariate at once by specifying the argument
+\rs{covar=c('cov1', 'cov2')}.
+
+%Currently, there are no user-friendly methods to extract specific parts of the \rs{rhdata} class data object (\eg covariate-specific tables by given ages and years). However, we can run the following commands to show the components of \rs{mtab} data set:
+%  \begin{itemize}\renewcommand{\labelitemi}{--}
+%\item print a query table of mortality rates by individual ages 70-75 and by the 
+%first level ('a') of \rs{cov1}:\\
+%\rc{mtab\$mu[60:95\%in\%70:75, ,1]}
+%\item print a query table of central exposures by individual ages 70-75 and level 'e' of rs{cov1}:\\
+%\rc{mtab\$pop[60:95\%in\%70:75, ,mtab\$covariates\$cov1\%in\%c('e')]}
+%\item print a query table of number of deaths for all ages by levels 'k-m' in the first 3 years:\\ 
+%\rc{mtab\$deaths[ ,1:3, 11:13]}
+%\end{itemize}
+
+Due to the extensive data segmentation, we are likely to get a considerable number of undetermined mortality rates corresponding to zero exposures. Thus, it can be useful, before fitting the SLC model, to make use of a suitable 'closing-out' procedure to replace these data cells.  This can be carried out with the aid of \rs{fill.rhdata} function, as follows:\\[7pt] \rc{mtab \ra fill.rhdata(mtab, method='mspline')\\
+    \rtab \# multidimensional wrapper of the fill.demogdata() function;}\\[7pt]  The above routine makes use of the \rs{smooth.demogdata} function wherever it is needed in order to fit monotonic regression splines (see \dem package manual) to the \asp mortality rates and replaces all zero or missing values. Similarly, it is possible to make use of the \rs{'interpolate'} method from the \dem package that interpolates between the values corresponding to the available nearby years of the same age group.  An alternative smoothing method implemented in the \ilc package is \rs{'perks'}, which attempts to fit a generalised Perks model \fn{\mu_x = \frac{a}{1+\exp(b-px)}} to the \asp mortality rates~\see{tha:99}.
+    
+For demonstration and/or testing purposes, it may be helpful to create an artificially stratified mortality experience with a Poisson error structure from a \rs{demogdata} class object.  The function \rs{dd.rfp} can take a \rs{demogdata} class object of \rs{'mortality'} type and adjust the observed log mortality rates by a vector of Poisson distributed additive effects (\ie reduction factors) with predetermined means (for further details see \ilc source code). \Fin, taking the CMI experience as the base data set, we can produce a randomly stratified mortality data  of \rs{rhdata} format, as follows: \\[7pt]
+    \rc{rfp.cmi \ra dd.rfp(dd.cmi.pens, rfp=c(0.5, 1.2, -0.7, 2.5))} \\[7pt] with a data summary shown as \\
+    \rc{rfp.cmi\\
+        \rtab Multidimensional Mortality data for: CMI [male]\\
+        \rtab Across covariates:\\
+        \rrtab        years: 1983 - 2003 \\
+        \rrtab          ages:  50 - 108 \\
+        \rrtab X: base, a, b, c, d}
+    
+Plots of the central exposures and log mortality rates held in the \rs{rfp.cmi} by the additional covariate (\rs{X}) can be produced in the following way (see Figure~\ref{rfp}):\\[7pt]\rc{matplot(rfp.cmi\$age, rfp.cmi\$pop[,,1], type='l', xlab='Age', \\
+        \rtab ylab='Ec', main='Base Level')} \# base level \\
+\rc{matplot(rfp.cmi\$age, rfp.cmi\$pop[,,2], type='l', xlab='Age', \\
+    \rtab ylab='Ec', main='Level 1') \# first level (a)\\
+\rrtab $\vdots$}\\[7pt]
+\rc{matplot(rfp.cmi\$age, log(rfp.cmi\$mu[,,1]), type='l', xlab='Age', \\
+            \rtab ylab='log(mu)', main='Base Level')} \# base level \\
+\rc{matplot(rfp.cmi\$age, log(rfp.cmi\$mu[,,2]), type='l', xlab='Age', \\
+            \rtab ylab='log(mu)', main='Level 1') \# first level (a)\\
+    \rrtab $\vdots$}\\[7pt]
+
+% Randomised CMI data
+\begin{figure}[!htb]
+\vspace{-10pt}
+\center{
+  \includegraphics[width=\textwidth]{rfp}\\[-10pt] 
+}
+\caption{Illustration of randomised CMI (lives) pensioners mortality experience:\newline central exposures and log central mortality rates by additional covariate (\rs{X}).}
+\label{rfp} \vspace{-10pt}
+\end{figure}
+
+The plots illustrated in Figure~\ref{rfp} of the randomised data (\rs{rfp.cmi}) with respect to the (artificial) additional effect (\rs{X}) show entirely indistinguishable central exposures and log mortality profiles. However, as will be demonstrated further on, the SLC fitting method can successfully identify the base mortality experience and estimate accurately the means of the additive effects.
+
+\subsection{Fitting the Mortality Models and Making Forecasts}\label{ilc:fit}
+%\heading{ilc:fit}{Fitting the Mortality Models and Making Forecasts}
+
+In order to explore the fitted model objects and to run diagnostic checks, the \ilc package caters for specialised methods of generic functions (like \rs{coef}, \rs{plot}, \rs{fitted} and \rs{residuals}) and also contains model specific utility functions (like \rs{deviance.lca}, \rs{residual\_plots}, and \rs{fitted\_plots}).  In the following, we illustrate the use of these tools and we give a brief interpretation of the outputs.
+
+\subsubsection{Analysis of the Generalised LC Model Structures}
+
+The \rs{lca.rh} is a universal routine of the \ilc package developed to fit any of the six variants of the LC model structures (\ie including the base LC model) using the iterative fitting method (see sections~\ref{sec:mod} and \ref{sec:fit}). The function arguments are defined as:\footnote{We acknowledge that \rs{lca.rh} is designed to mimic some of 
+the features and functionality of the \rs{lca} function of the \dem package. Also, as mentioned before, it makes use of the 'interpolate' correction method to replace missing data cells.  However, the modelling and fitting methodology implemented in \rs{lca.rh} are based entirely on the iterative approach presented in this paper.}\\[7pt]
+\rc{args(lca.rh)\\
+    function (dat, year = dat\$year, age = dat\$age, series = 1, max.age = 100,
+              dec.conv = 6, \\
+              \rtab clip = 3, error = c("poisson", "gaussian"),\\
+              \rtab model = c("m", "h0", "h1", "h2", "ac", "lc"),  \\
+              \rtab restype = c("logrates", "rates", "deaths", "deviance"),
+              scale = F, interpolate = F, \\
+              \rtab verbose = T, spar = NULL) }
+
+The functionality of the arguments are aimed to be self-explanatory and
+user-friendly.  In the following we clarify further the main features:
+  \noskip\begin{description}
+\item[dat] source data object of \rs{demogdata} class;
+\item[series] target series to be used from the source data;
+\item[dec.conv] number of decimal places used to achieve convergence;
+\item[clip] number of marginal cohorts to remove from the rectangular data array
+(\ie give 0 weights -- it's only applicable to the first 5 models);
+ \item[error] type of error structure of the model choice;
+ \item[model] model choice (see section~\ref{mod:flc}) -- it can be a character or a numeric value (1-6) corresponding to the described models;
+ \item[restype] type of residuals, which controls the type of the fitted value too;\\
+ Thus, in the cases of \rs{'logrates'} and \rs{'rates'} the function
+ returns as fitted values the log and untransformed mortality rates,
+ respectively.  Likewise,  the choices  of \rs{'deaths'} and
+ \rs{'deviance'} correspond to the fitted number of deaths.
+ \item[scale] based on \rs{lca} of \dem package to re-scale the interaction
+ parameters so that the $\kappa_t$ has drift parameter equal to 1;
+ \item[spar] numerical smoothing spline parameter (see \rs{smooth.spline} function);\\
+ If not NULL (\ie ranging from 0 to 1, with a recommended value of 0.6) the interaction effects \fn{\beta_x^{\fn{0,1}}} are smoothed out after fitting. As a consequence, the period/cohort effects are adjusted accordingly.
+ \item[verbose] logical parameter to control the output amount of process information;\\
+ If set to \rs{TRUE} the program prints out the updated deviance values along with the starting and final parameter estimates.
+ \end{description}
+ 
+In the following two examples, we aim to give a general feel of how to make use of the above iterative fitting routine and then we discuss briefly the program outputs:
+ 
+ \vspace{7pt}\note{1) Estimate the base LC model (with Poisson errors)}\\[7pt] In this application, we make use of the CMI (lives) data up to the age of 100 to avoid any data irregularities at very old ages and any remaining 0/NA values we can replace by interpolation:\\[7pt]
+ \rc{mod6 \ra lca.rh(dd.cmi.pens, mod='lc', interpolate=T, verbose=F)\\
+ Original sample: Mortality data for CMI \\
+ \rtab Series: male\\
+ \rtab Years: 1983 - 2003\\
+ \rtab Ages:  50 - 108 \\
+ Applied sample: Mortality data for CMI (Corrected: interpolate)\\
+ \rtab Series: male\\
+ \rtab Years: 1983 - 2003\\
+ \rtab Ages:  50 - 100 \\[7pt]
+ Fitting model: [ LC = a(x)+b1(x)*k(t) ] \\
+ \rrtab    - with Poisson error structure and with deaths as weights -\\[7pt]
+ Iterations finished in: 14 steps\\
+ Warning messages:\\
+ 1: In lca.set(dat, year, age, series, max.age, interpolate) :\\
+ \rtab \hence data above age 100 are grouped.\\
+ 2: A total of 62 0/NA central mortality rates are re-estimated by the
+ "interpolate" method. \\
+ 3: In lca.set(dat, year, age, series, max.age, interpolate) : \\
+ \rtab There are 45 cells with 0/NA exposures, which are ignored
+ in the current analysis.\\
+ \rtab Try reducing the maximum age or choosing a different age range. \\
+ \rtab Alternatively, fit LC model with error= "gaussian" .  }
+ 
+ % Figure: LC parameters for CMI male pens 
+ \begin{figure}[!htb]
+ %\vspace{-10pt}
+ \center{
+ \includegraphics[width=0.65\textwidth,height=0.5\textheight]{lc-par} 
+ }\vspace{-10pt}
+ \caption{LC regression parameters for CMI male pensioners (lives) for
+ age range 50~--~100 over the observation period of 1983~--~2003.}
+ \label{lc-par} \vspace{-10pt}
+ \end{figure}
+ 
+ We note here that the same call to \rs{lca.rh} function with \rs{error=
+ ''gaussian''} setting, computes the standard LC model of~\cite{lee;car:92}, however, using the iterative fitting method instead of the traditional SVD. Alternatively, the \rs{lca} function of the \dem package can fit the standard LC model with SVD approach by issuing a call like:\\[7pt]
+ \rc{modlc \ra lca(dd.cmi.pens, interpolate=T, adjust='none')}\\[7pt]
+ that yields the same parameter estimates (for further details of using the
+ \rs{lca} function, the reader is referred to the  \dem manual).
+ 
+ A short printout of the model summary is produced by:\\[7pt]
+ \rc{mod6\\[7pt]
+ -----------------------------------------------------------------\\
+ \rtab     Iterative Lee-Carter Family Regression:\\
+ \rtab       Fitted Model:  LC = a(x)+b1(x)*k(t) \\
+ -----------------------------------------------------------------\\
+ Call: lca.rh(dat = dd.cmi.pens, model = "lc", interpolate = T, verbose = F)\\
+ Error Structure: poisson\\
+ Data Source: CMI [male] over\\
+ \rtab calendar years: (1983 - 2003) and ages: (50 - 100)\\
+ Deviance convergence in: 14 iterations\\
+ \rrtab \rrtab            dev dev.c    \rrtab     df df.c\\
+ 1  Mean deviance base 1.386  \rtab  df base  905\\
+ 2 Mean deviance  total 1.733  \rtab   df tot  969\\
+ }
+ 
+ % Figure: LC fitted values for CMI male pens 
+ \begin{figure}[!htb]
+ \vspace{-15pt}
+ \center{
+ \includegraphics[width=\textwidth]{lc-fit}\\[-33pt] 
+ \hfill \emph{a)} \Findent \hfill\hfill \emph{b)} \Findent\hfill
+ }
+ \caption{LC cross-classified fitted values for CMI male pensioners (lives) for
+ age range 50~--~100 over the observation period of 1983~--~2003.\newline 
+ \emph{a)} by age versus year and \emph{b)} by year versus age}
+ \label{lc-fit} \vspace{-10pt}
+ \end{figure}
+ 
+ The estimated model parameters can be printed out using the \rs{coef} 
+ function:\\[7pt]
+ \rc{coef(mod6) 
+ \noskip[1.5]\begin{tabbing}
+ 111111\=11111111\=11111111\=1111111\=11111111\=11111111\=1111111\kill
+ \> ax \> ax.c \>   bx1 \>  bx1.c  \> kt  \>  kt.c\\
+ 1  \>  50  \> -3.665    \>   50   \> 0.110     \> 1983   \> 13.735\\
+ 2  \>  51  \> -4.199   \>    51   \> 0.048     \> 1984   \> 11.988\\
+ 3  \>  52  \> -4.633    \>   52   \> 0.037     \> 1985   \> 12.331\\
+ 4  \>  53  \> -4.812    \>   53   \> 0.017     \> 1986    \> 9.747\\
+ % 5  \>  54  \> -4.664    \>   54   \> 0.013     \> 1987   \> 10.772\\
+ \noskip\vdots
+ \end{tabbing}} 
+ \noskip\noindent where the columns headed with \rs{.c} extension give the estimated coefficients and the other columns indicate the corresponding parameter labels. Alternatively, we can illustrate  graphically   the fitted parameters (see Figure~\ref{lc-par}) by the simple command:\\[7pt]
+ \rc{plot(mod6)}
+ 
+ Further graphical illustrations of the regression outcome can be produced with the following command:\\[7pt]
+ \rc{fitted\_plots(mod6)}\\[7pt]
+ that plots the cross-classified fitted values by age against calendar year;and also by year against age (see Figure~\ref{lc-fit} panes \emph{a)} and \emph{b)}, respectively).
+ 
+ According to~\cite{ren;hab:06}, the preferred type of residuals to conduct diagnostic checks on the model are the standardised deviance residuals. Thus, we should change the current LC fitted object's residual values from \rs{'logrates'} type, which was only needed in order to produce the corresponding fitted values.  In order to compute the \rs{'deviance'} residuals from a fitted object with different type of residuals, we can make use of the function \rs{lca.dev.res}, though this utility also needs the central exposures matrix used in the LC fitting (see source code for further details and                     examples).  In cases where deviance convergence is achieved fairly quickly, it is also possible to simply re-fit the original model, as follows:\\[7pt]
+ \rc{mod6d \ra lca.rh(dd.cmi.pens, mod='lc', restype='deviance', interpolate=T,
+                      verbose=F)}\\[7pt]
+ Then, we can run the residuals plotting method on the new output object
+ (see Figure~\ref{lc-res}):\\[7pt]
+ \rc{residual\_plots(mod6d)}\\[7pt]
+ although, we note that the above function works on any type of residuals of the LC class family models.
+ 
+Finally, we can produce forecasts of future mortality improvements and the corresponding future \lex based on the fitted LC model.  The \ilc application makes use of the \rs{forecast} package to predict future values of the trend parameter \fn{\kappa_t} using a traditional ARIMA\fn{0,1,0} model over a given time horizon. This is accomplished by running the \rs{forecast} method on the fitted model object.  \Fin, in order to produce a forecast over a 20 years period, we can issue the following type of command:\\[7pt]
+ \rc{forc6 \ra forecast(mod6, h=20, jump='fit', level=90, shift=F)}\\[7pt]
+ which returns a \rs{``fmforecast''} class object that contains the predicted mean trend parameter and the corresponding predicted mean mortality rates, alongside with their \rs{lower} and \rs{upper} limits of a \prc{90} confidence interval (CI).
+ 
+ We can visualise the forecasted log-mortality rates with the \rs{demogdata} plotting method:\\[7pt]
+ \rc{plot\_dd(forc6, xlim=c(45, 100), lpar=list(x.int=-0.2, y.int=0.9,
+                                               cex=0.95))}\\[7pt]
+ Figure~\ref{lc-forc} shows the above and we can note that the overly low rates
+ at age 50 are the results of the corresponding peaked interaction effect
+ \fn{\beta_{50}}, as it can be seen in Figure~\ref{lc-par}.
+ 
+ % Figure: LC residuals for CMI male pens 
+ \begin{figure}[!htbp]
+ \vspace{-10pt}
+ \center{
+   \includegraphics[width=0.95\textwidth]{lc-res}\vspace{-10pt}}
+ \caption{LC standardised deviance residuals  for CMI male pensioners (lives) for
+          age range 50~--~100 over the observation period of 1983~--~2003.}
+ \label{lc-res} \vspace{-20pt}
+ \end{figure}
+ 
+ % Figure: LC forecasted log-rates for CMI male pens 
+ \begin{figure}[!htb]
+ \vspace{-20pt}
+ \center{
+   \includegraphics[width=0.9\textwidth,height=0.45\textheight]{lc-forc}\\[-10pt] 
+ }
+ \caption{LC future log mortality rates values for CMI male pensioners (lives) 
+          for age range 50~--~100 over a 20 years prediction horizon.}
+ \label{lc-forc} \vspace{-10pt}
+ \end{figure}
+ 
+ % Figure: LC forecasted kt and le for CMI male pens 
+ \begin{figure}[!htb]
+ \vspace{-10pt}
+ \center{
+   \includegraphics[width=0.95\textwidth,height=0.45\textheight]{lc-flc}\\[-32pt]
+    \hfill \emph{a)} \hfill\hfill \emph{b)} \Findent\hfill
+ }
+\setcaptionwidth{0.85\textwidth} 
+\caption{Illustration of LC forecast over a 20 years prediction horizon 
+         with \prc{90} CI  for CMI male pensioners (lives)\newline
+         \emph{a)} trend parameter $\kappa_t$ and \emph{b)} future \lex at age 60.}
+\label{lc-flc} \vspace{-10pt}
+\end{figure}
+
+Further, the forecast object \rs{forc6} also contains the predicted mean \lex and its \prc{90} CI, which can be extracted by:\\[7pt]
+\rc{forc6\$e0\\
+    Time Series:\\
+    Start = 2004 \\
+    End = 2023 \\
+    Frequency = 1 
+    \noskip[1.5]\begin{tabbing}
+    111111\=1111111111\=1111111111\=11111111\kill
+    \>       e0  \>   e0.lo  \>   e0.hi \\
+    2004\>  34.18014 \> 33.63142 \> 34.73744\\
+    2005\>  34.46238 \> 33.66483 \> 35.28137\\
+    2006\>  34.74726 \> 33.74325 \> 35.79047\\
+    2007\>  35.03522 \> 33.84356 \> 36.28940\\
+    2008\>  35.32670 \> 33.95714 \> 36.78839
+    \end{tabbing}}
+\noskip\noindent However, we can also compute \lex forecasts at other ages too by making use of the following \dem package command, say, at target age of~60:\footnote{Further details about the application of this command are available in the \dem package help files -- \eg by typing at the \R console \rc{?life.expectancy} .}\\[7pt] \rc{le6 \ra life.expectancy(forc6, age=60)}
+
+The \ilc package contains two specialised functions: \rs{fle.plot} and
+\rs{flc.plot} that can make forecasts and produce the corresponding plots directly from the LC model object.  The former creates plots only of the predicted (period) \lex at any age with the chosen prediction interval (PI), whereas the latter produces the plots of both the predicted trend parameter and the predicted \lex at any age alongside the estimated PIs.  \Fex, Figure~\ref{lc-flc} illustrates the plotting
+output of the following command:\\[7pt]
+\rc{flc.plot(mod6, at=60, h=30, level=90)}\\[7pt]
+with the same parameter settings as in the previous examples.
+
+\vspace{7pt}\note{2) Estimate the APC model (with Poisson errors)}\\[7pt]
+In this application we make use of the CMI data using a restricted age range (\eg to avoid data correction) and 'deviance' residuals.  It is possible to choose a reduced convergence precision to achieve faster processing, although for proper fit it is recommended to use the default value (it can lead to a slower                                                    convergence cycle for this model):\\[7pt]
+\rc{mod1 \ra lca.rh(dd.cmi.pens, age=60:95, res='dev', dec=3, verb=F)\\
+    Original sample: Mortality data for CMI \\
+    \rtab Series: male\\
+    \rtab Years: 1983 - 2003\\
+    \rtab Ages:  50 - 108 \\
+    Applied sample: Mortality data for CMI \\
+    \rtab Series: male\\
+    \rtab Years: 1983 - 2003\\
+    \rtab Ages:  60 - 95 \\[7pt]
+    Fitting model: [ M = a(x)+b0(x)*i(t-x)+b1(x)*k(t) ] \\
+    \rrtab    - with Poisson error structure and with deaths as weights -\\[7pt]
+    Iterations finished in: 445 steps\\
+    Warning messages:\\
+    1: In lca.set(dat, year, age, series, max.age, interpolate) :\\
+    \rtab There are 1 cells with 0/NA mu, which are ignored in the current
+    analysis.\\
+    \rtab Try reducing the maximum age or setting interpolate=TRUE.\\
+    2: In lca.rh(dd.cmi.pens, age = 60:95, int = F, res = "dev", dec = 3,  :\\
+                 \rtab The cohorts outside [1891, 1940] were zero weighted (clipped).  }
+
+The corresponding model summary can be printed out by writing:\\[7pt]
+\rc{mod1\\[7pt]
+    ---------------------------------------------------------------------------\\
+    \rtab  Iterative Lee-Carter Family Regression:\\
+    \rtab       Fitted Model:  M = a(x)+b0(x)*i(t-x)+b1(x)*k(t) \\
+    ---------------------------------------------------------------------------\\
+    Call: lca.rh(dat = dd.cmi.pens, age = 60:95, dec.conv = 3, restype = "dev", \\
+                 \rtab interpolate = F, verbose = F)\\
+    Error Structure: poisson\\
+    Data Source: CMI [male] over\\
+    \rtab calendar years: (1983 - 2003) and ages: (60 - 95)\\
+    Deviance convergence in: 445 iterations\\
+    \rrtab \rrtab                 dev dev.c   \rrtab      df df.c\\
+    1  Mean deviance base 1.386  \rtab    df base  597\\
+    2 Mean deviance total 1.648 \rtab df tot 684 } 
+
+Similarly, in the case of the APC fitted model, we can repeat the above
+procedures to investigate the regression, that gives the following
+outputs:\\[7pt]
+\rc{coef(mod1) 
+    \noskip[1.5]\begin{tabbing}
+    111111\=11111111\=11111111\=11111111\=11111111\=1111111\=11111111\=11111111\=1111111\kill
+    \>  itx  \> itx.c   \>  ax   \> ax.c   \> bx0.c  \> bx1.c  \>     kt   \>  kt.c\\
+    1\>  1888  \> 0.000  \>   60 \> -3.923  \> -0.049 \> 0.051  \>   1983  \>      0\\
+    2\>  1889  \> 0.000  \>   61  \> -4.15  \> -0.021 \>  0.03 \>    1984 \>  -1.267\\
+    3\>  1890  \> 0.000  \>   62  \>-4.307  \>  0.04 \> 0.039  \>   1985 \>  -1.001\\
+    4\>  1891  \> 3.381  \>   63  \>-4.394  \> 0.027 \> 0.018  \>   1986 \>  -2.901\\
+    % 5 \> 1892  \> 3.649  \>   64 \> -4.117  \>  0.06 \> 0.027   \>  1987 \>  -2.357\\
+    \vdots
+    \end{tabbing}}
+\noskip\noindent where we can note that both trend parameters
+\fn{\kappa_t,\:\iota_{t-x}} are re-scaled during fitting to start from~0 (see                                                               section~\ref{fit:elc}).  The regression plot in Figure~\ref{apc-par} reveals a strong cohort effect for the pensioners born between 1910--1920:\\[7pt]
+\rc{plot(mod1)}
+
+% Figure: APC parameters for CMI male pens 
+\begin{figure}[!htb]
+\vspace{-10pt}
+\center{
+  \includegraphics[width=0.9\textwidth]{apc-par} 
+}
+\caption{APC regression parameters for CMI male pensioners (lives) for
+         age range 60~--~95 over the observation period of 1983~--~2003.}
+\label{apc-par} \vspace{-10pt}
+\end{figure}
+
+The other 4 model constructs can be estimated in a similar way by entering the corresponding \rs{model} argument value in the main function call. Usually, in the case of large data sets, the fitting cycle is fast and produces stable parameter estimates.  We have not yet implemented any object oriented methods in the \ilc package to produce forecasts for the models that allow for the cohort effect.  This feature is going to be developed in future versions of the software.
+
+\subsubsection{Analysis of the Stratified LC Model}
+
+The \ilc package provides the purpose-built \rs{elca.rh} program to fit the extended (\ie stratified) LC model structure using the iterative fitting method (see sections~\ref{mod:elc} and \ref{fit:slc}).  This function follows closely the structure of the \rs{lca.rh} regression routine and offers the same choice of argument settings.  In addition, fixed base age effect \fn{\alpha_x} can be imputed through the optional \rs{ax.fix} argument, which are then not modified during the fitting process.  The function is specified in the following way:\footnote{Observe that the \rs{max.age} feature is not implemented in the current version of the \rs{elca.rh} function.}\\[7pt]
+\rc{args(elca.rh)\\
+    function(dat, year=dat\$year, age=dat\$age, dec.conv = 6,
+             error = c("poisson", "gaussian"), \\
+             \rtab restype = c("logrates", "rates", "deaths", "deviance"), scale = F,
+             interpolate = F, \\
+             \rtab verbose = T, spar=NULL, ax.fix = NULL) }\\[7pt]
+where the arguments listed below have an updated functionality from the previous
+description:
+  \noskip[3]\begin{description}
+\item[dat] source data object of \rs{rhdata} class with only one additional
+grouping factor (\ie covariate other than age and time);
+\item[ax.fix] vector of predetermined parameter estimates of the main (base) age effect, which must be of the same length as the \rs{age} argument.\\
+Therefore, if it is not NULL the parameter \fn{\alpha_x} is ignored  during the updating cycle.
+\end{description}
+
+The only multidimensional data sets available to us, that were used to develop this part of the program, are currently commercially sensitive and thus are restricted for publication.  Nevertheless, we can still demonstrate the use of the program on the randomly stratified CMI mortality data set (\rs{rfp.cmi}) presented in section~\ref{ilc:dat}, as follows:\\[7pt]
+\rc{mod6e \ra elca.rh(rfp.cmi, age=50:100, interp=T, dec=3, verb=F)\\
+    Original sample: Multidimensional Mortality data for: CMI [male] \\
+    Across covariates:\\
+    \rtab      years: 1983 - 2003\\
+    \rtab        ages:  50 - 108\\
+    \rtab        X: base, a, b, c, d\\
+    Applied sample: Multidimensional Mortality data for: CMI [male] \\
+    Across covariates:\\
+    \rtab       years: 1983 - 2003\\
+    \rtab       ages:  50 - 100\\
+    \rtab      X: base, a, b, c, d\\[7pt]
+    Fitting model: [ LC(g) = a(x)+a(g)+b(x)*k(t) ] \\
+    \rrtab - with Poisson error structure and with deaths as weights -\\[7pt]
+    Iterations finished in: 38 steps\\
+    Warning messages:\\
+    1: A total of 1160 0/NA central mortality rates are re-estimated by the
+    "interpolate" method.  \\
+    2: In elca.rh(rfp.cmi, age = 50:100, int = T, dec = 3, verb = F) :\\
+    \rtab There are 152 cells with 0/NA exposures, which are ignored in the
+    current
+    analysis. \\
+    \rtab   Try reducing the fitted age range.\\
+    \rtab Alternatively, fit ELC model with error= "gaussian" .  }
+
+The corresponding model summary output is provided by writing:\\[7pt]
+\rc{mod6e\\
+    ---------------------------------------------------------------------\\
+    \rtab      Extended Lee-Carter Regression: \\
+    \rtab      Fitted Model:  LC(g) = a(x)+a(g)+b(x)*k(t) \\
+    --------------------------------------------------------------------\\
+    Call: elca.rh(dat = rfp.cmi, age = 50:100, dec.conv = 3, interpolate = T, \\
+                  \rtab     verbose = F)\\
+    Error Structure: poisson \\
+    Data Source: CMI : male over \\
+    \rtab   calendar years: (1983 - 2003) , ages: (50 - 100) \\
+    \rtab   and groups: base a b c d \\
+    Deviance convergence in: 38 iterations \\
+    \rrtab \rrtab     dev   dev.c  \rrtab         df \rtab df.c\\
+    1  Mean deviance base \findent 264.316  \rtab    df base \findent 3648\\
+    2 Mean deviance total \findent 202.249 \rtab df tot \findent\findent 4845}
+
+% Figure: SLC parameters for CMI male pens 
+\begin{figure}[!htb]
+%\vspace{-10pt}
+\center{
+  \includegraphics[width=0.95\textwidth,height=0.47\textheight]{elc-par} 
+}
+\caption{SLC regression parameters for artificially stratified CMI male
+         pensioners (lives) for age range 50~--~100 over the observation  
+         period of 1983~--~2003.}
+\label{elc-par} \vspace{-10pt}
+\end{figure}
+
+Also, we can print out the fitted parameter values of the additive effect as:\\[7pt]
+\rc{coef(mod6e) 
+    \noskip[1.5]  \begin{tabbing}
+    111111\=11111111\=11111111\=1111111\=11111111\=11111111\=1111111\=1111111111\=1111111\kill
+    \>    ax \>   ax.c \>   bx.c  \>   kt \>  kt.c  \>   ag \>   ag.c \\
+    1\>    50 \> -4.033\>   0.164\>     1983 \>  16.162 \>    base  \>     0\\
+    2\>    51 \> -4.319\>   0.044\>     1984 \>  11.457 \>       a \>  0.496\\
+    3\>    52 \> -4.801\>   0.022\>     1985 \>  13.075 \>       b  \>  1.17\\
+    4\>    53 \> -4.896\>   0.030\>     1986 \>  10.106 \>       c \> -0.735\\
+    % 5\>    54 \> -4.874\>   0.015 \>    1987 \>   8.772 \>       d \>  2.518\\
+    \vdots
+    \end{tabbing}}\vspace{-5pt}
+
+% \rc{coef(mod6e)\$ag \rtab \# or simply mod6e\$ag  \vspace{-15pt}
+      % \begin{tabbing}
+      % 1111111111\=1111111111\=1111111111\=11111111111\=1111111111\kill
+      % \Findent base    \>    \Findent   a     \>     \Findent  b     \>   
+        % \Findent    c     \>    \Findent   d \\
+      % 0.0000000  \> 0.4957474 \>  1.1704848\>  -0.7346377\>   2.5180471 
+      % \end{tabbing}\vspace{-10pt}}
+
+We  note that the fitting algorithm converges fairly quickly, in just 38 iterations, when using the precision of \rs{dec.conv=3} and estimates the parameters of the additional effect (see values in column \rs{ag.c}) close to the simulated Poisson means (\ie \rs{rfp=c(0.5, 1.2, -0.7, 2.5)}).  Also, considering the extent of noise imposed on the base CMI data (see                                                  Figure~\ref{rfp}), the remaining parameter estimates are overall similar to the coefficients of the standard LC (\rs{lca.rh}) fit with Poisson error structure (\rs{mod6}), as it can be seen in the corresponding interaction and period effects shown in the plots of Figures~\ref{lc-par} and \ref{elc-par}. Based on empirical trials carried out on actual mortality data, we can report that the parameters  of the bilinear term, practically, remain the same after adding
+an observed additional effect \fn{\alpha_g} to the model. 
+
+
+Once we allow for the stratification of the main effect parameter, forecasting in the SLC modelling framework can proceed along the same method applied in the traditional LC approach (see section~\ref{mod:for}).  In the current \ilc package, there are no specialized methods to produce predictions directly, but we can still make use of the \dem package \rs{forecast.lca} functions to produce forecasted trend parameter \fn{\kappa_t}.  Then, we can make use of an adapted
+version of the \rs{fle.plot} method to illustrate the corresponding future \lex differentiated by the additional effect using the following commands:\\[7pt]
+\rc{mod6ef \ra forecast.lca(mod6e, h=20, level=90, jump='fit', shift=F)}\\
+\rc{plot(mod6ef\$kt, ylab='kt', xlab='Year')}\\
+\rc{matfle.plot(mod6e\$lca, mod6, at=60, label='RFP CMI', h=20)}\\[7pt]
+Thus, Figure~\ref{elc-forc} illustrates the resulting plots of predicted trend parameter (panel \emph{a)}) and the future \lex at age 60 over a 20 year period (panel \emph{b)}).
+\newpage
+% RFP CMI forecast
+\begin{figure}[!htb]
+\vspace{-10pt}
+\center{
+  \includegraphics[width=\textwidth]{elc-forc} \\[-33pt]
+  \hfill \emph{a)} \Findent\hfill\hfill \emph{b)} \Findent\hfill
+} 
+\caption{Illustration of forecast result over a 20 years period in the SLC modelling framework:\emph{a)} future trend parameter and \emph{b)} future \lex at age 60.}
+\label{elc-forc} \vspace{-10pt}
+\end{figure}
+
+
+
+\section*{Acknowledgments}
+\label{ack}
+\markright{\small \it Acknowledgments}
+\begin{small}
+Financial support for the development of the current statistical program in \R from the CMI and from \rs{Lucida Plc} is gratefully acknowledged. A special thanks goes to our colleague Arthur Renshaw for providing the original source code in \rs{GLIM} of the iterative fitting technique for the generalised LC models. Also the authors are grateful to the CMI for releasing the mortality data.
+\end{small}
+
+
+ \clearpage
+\markright{References}
+ \bibliographystyle{apalike} 
+\bibliography{ilc}
+
+\end{document}
+
